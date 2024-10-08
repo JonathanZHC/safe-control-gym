@@ -684,6 +684,52 @@ class Quadrotor(BaseAviary):
             X_dot = cs.vertcat(pos_dot[0], pos_ddot[0], pos_dot[1], pos_ddot[1], pos_dot[2], pos_ddot[2], ang_dot, rate_dot)
 
             Y = cs.vertcat(x, x_dot, y, y_dot, z, z_dot, phi, theta, psi, p_body, q_body, r_body)
+
+
+        #------add-on------#
+
+        elif self.QUAD_TYPE == QuadType.THREE_D_ATTITUDE_12S:
+            nx, nu = 12, 4
+            # Define states.
+            x = cs.MX.sym('x')
+            x_dot = cs.MX.sym('x_dot')
+            y = cs.MX.sym('y')
+            y_dot = cs.MX.sym('y_dot')
+            phi = cs.MX.sym('phi')  # roll angle [rad]
+            phi_dot = cs.MX.sym('phi_dot')
+            theta = cs.MX.sym('theta')  # pitch angle [rad]
+            theta_dot = cs.MX.sym('theta_dot')
+            psi = cs.MX.sym('psi')  # yaw angle [rad]
+            psi_dot = cs.MX.sym('psi_dot')
+            X = cs.vertcat(x, x_dot, y, y_dot, z, z_dot, phi, phi_dot, theta, theta_dot, psi, psi_dot)
+            # Define input collective thrust and theta.
+            T = cs.MX.sym('T_c')  # normlized thrust [N]
+            R = cs.MX.sym('R_c')  # desired roll angle [rad]
+            P = cs.MX.sym('P_c')  # desired pitch angle [rad]
+            Y = cs.MX.sym('Y_c')  # desired yaw angle [rad]
+            U = cs.vertcat(T, R, P, Y)
+            # The thrust in PWM is converted from the normalized thrust.
+            # With the formulat F_desired = b_F * T + a_F
+
+            # Define dynamics equations.
+            # TODO: create a parameter for the new quad model
+            X_dot = cs.vertcat(x_dot,
+                            (20.763637147006943 * T + 3.1610208881218727) * (cs.cos(phi) * cs.sin(theta) * cs.cos(psi) + cs.sin(phi) * cs.sin(psi)),
+                            y_dot,
+                            (20.763637147006943 * T + 3.1610208881218727) * (cs.cos(phi) * cs.sin(theta) * cs.sin(psi) - cs.sin(phi) * cs.cos(psi)),
+                            z_dot,
+                            (20.763637147006943 * T + 3.1610208881218727) * cs.cos(phi) * cs.cos(theta) - g,
+                            phi_dot,
+                            - 25.651473451232217 * phi - 2.5580262532002482 * phi_dot + 17.524089241776338 * R,
+                            theta_dot,
+                            - 61.62863740616216 * theta - 7.205874472066235 * theta_dot + 51.90335491067372 * P,
+                            psi_dot,
+                            - 12.544174350349687 * psi - 0.012945379372787613 * psi_dot + 43.839961280232046 * Y)
+            # Define observation.
+            Y = cs.vertcat(x, x_dot, y, y_dot, z, z_dot, phi, phi_dot, theta, theta_dot, psi, psi_dot)
+
+        #------add-on------#
+
         # Set the equilibrium values for linearizations.
         X_EQ = np.zeros(self.state_dim)
         if self.QUAD_TYPE == QuadType.TWO_D_ATTITUDE:
